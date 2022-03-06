@@ -1,8 +1,10 @@
+#!/usr/bin/env python3
 import os
 import serial
 from getch import _Getch
 import threading
 import time
+import sys
 
 
 class ListenOnSerialPort(threading.Thread):
@@ -13,11 +15,12 @@ class ListenOnSerialPort(threading.Thread):
     def run(self):
         while True:
             if not self.keyboard_thread.input_active:
+                line = ser.readline()
                 try:
-                    ser_in = ser.readline().decode('utf-8').strip('\n')
+                    ser_in = line.decode('utf-8').strip('\n')
                     print(ser_in)
-                except UnicodeDecodeError:
-                    print("Serial Error")
+                except UnicodeDecodeError as e:
+                    print("<<{}>>".format(line))
 
 
 class ListenOnKeyboard(threading.Thread):
@@ -39,10 +42,17 @@ class ListenOnKeyboard(threading.Thread):
 
 print("Press 'i' for sending data")
 print("Press 'q' to quit")
-port = input("port: ")
-baud = 9600
+if len(sys.argv) > 1:
+	port = sys.argv[1]
+else:
+	port = input("port: ")
+if len(sys.argv) > 2:
+	baud = int(sys.argv[2])
+else:
+	baud = 9600
 
 getch = _Getch()
+print((port, baud))
 ser = serial.Serial(port, baud)
 
 kb_listen = ListenOnKeyboard()
