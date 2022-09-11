@@ -8,6 +8,9 @@
 #
 # These scripts are executed after every build and upload
 # but stops serial monitor only on uploading.
+#
+# These scripts make assumption that *SerialMonitor* is symbolic link to monitor.py script
+# and is accessible from $PATH
 
 
 import os
