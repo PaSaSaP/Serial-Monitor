@@ -1,10 +1,22 @@
 #!/usr/bin/env python3 -u
+
+# To automatically stop/start serial terminal when uploading code from vsc
+# add something like below to arduino.json below options:
+#
+#    "prebuild": "~/bin/vsc-prebuild.sh",
+#    "postbuild": "~/bin/vsc-postbuild.sh",
+#
+# These scripts are executed after every build and upload
+# but stops serial monitor only on uploading.
+
+
 import os
 import serial
 from getch import _Getch
 import threading
 import time
 import sys
+import signal
 
 
 def str2bool(v):
@@ -42,6 +54,8 @@ class ListenOnSerialPort(threading.Thread):
                     c = ser.read()
                 except serial.serialutil.SerialException:
                     continue
+                except TypeError:  # serial closed by signal
+                    continue
                 try:
                     ser_in = c.decode('utf-8')
                     print(ser_in, end='')
@@ -54,6 +68,7 @@ class ListenOnKeyboard(threading.Thread):
 
     def run(self):
         global serial_opened
+        global stopped_by_signal
         while True:
             cmd_in = getch()
             print(cmd_in)
@@ -81,6 +96,29 @@ class ListenOnKeyboard(threading.Thread):
                 os._exit(1)
 
 
+def handle_signal_stop(sig_number, frame):
+    global serial_opened
+    global stopped_by_signal
+    if serial_opened:
+        ser.close()
+        print("Serial closed by external signal")
+        stopped_by_signal = True
+        serial_opened = False
+
+
+def handle_signal_cont(sig_number, frame):
+    global serial_opened
+    global stopped_by_signal
+    if stopped_by_signal:
+        ser.open()
+        serial_opened = True
+        stopped_by_signal = False
+        print("Serial opened by external signal")
+
+signal.signal(signal.SIGFPE, handle_signal_stop)
+signal.signal(signal.SIGCONT, handle_signal_cont)
+
+
 print("Press 'i' for sending data")
 print("Press 'q' to quit")
 print("For ESP8266 based boards pass true as third parameter")
@@ -104,6 +142,7 @@ ser = serial.Serial(port, baud)
 if len(sys.argv) > 3 and str2bool(sys.argv[3]):
     ser_reset_on_start()
 serial_opened = True
+stopped_by_signal = False
 
 kb_listen = ListenOnKeyboard()
 sp_listen = ListenOnSerialPort(kb_listen)
